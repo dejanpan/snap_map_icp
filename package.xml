@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<package>
+  <name>snap_map_icp</name>
+  <version>0.0.0</version>
+  <description>The snap_map_icp package</description>
+
+  <maintainer email="ruehr@cs.tum.edu">Thomas Ruehr</maintainer>
+
+  <license>BSD</license>
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>laser_geometry</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>bullet</build_depend>
+  <build_depend version_gte="1.7.0">libpcl-all</build_depend>
+
+  <run_depend>std_msgs</run_depend>
+  <run_depend>nav_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
+  <run_depend>laser_geometry</run_depend>
+  <run_depend>tf</run_depend>
+  <run_depend>bullet</run_depend>
+  <run_depend version_gte="1.7.0">libpcl-all</run_depend>
+
+  <export>
+  </export>
+</package>
+
+

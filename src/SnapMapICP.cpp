@@ -50,6 +50,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 
 #include <boost/thread/mutex.hpp>
+//#include <bullet/LinearMath/btMatrix3x3.h>>
 
 boost::mutex scan_callback_mutex;
 
@@ -137,7 +138,7 @@ matrixAsTransfrom (const Eigen::Matrix4f &out_mat,  tf::Transform& bt)
     mv[6] = out_mat (2, 1);
     mv[10] = out_mat (2, 2);
 
-    btMatrix3x3 basis;
+    tf::Matrix3x3 basis;
     basis.setFromOpenGLSubMatrix(mv);
     tf::Vector3 origin(out_mat (0, 3),out_mat (1, 3),out_mat (2, 3));
 
