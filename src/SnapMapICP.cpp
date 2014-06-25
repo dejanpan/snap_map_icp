@@ -35,6 +35,7 @@
 #include <nav_msgs/OccupancyGrid.h>
 //for point_cloud::fromROSMsg
 #include <pcl/ros/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/point_cloud_conversion.h>
 #include <sensor_msgs/LaserScan.h>
 #include <pcl/point_types.h>
@@ -74,8 +75,8 @@ double ICP_NUM_ITER = 250;
 
 double SCAN_RATE = 2;
 
-std::string BASE_LASER_FRAME = "/base_laser_link";
-std::string ODOM_FRAME = "/odom_combined";
+std::string BASE_LASER_FRAME = "/hokuyo_laser_link";
+std::string ODOM_FRAME = "/odom";
 
 ros::NodeHandle *nh = 0;
 ros::Publisher pub_output_;
@@ -100,7 +101,7 @@ bool we_have_a_map = false;
 bool we_have_a_scan = false;
 bool we_have_a_scan_transformed = false;
 
-bool use_sim_time = false;
+bool use_sim_time = true;
 
 int lastScan = 0;
 int actScan = 0;
@@ -142,7 +143,7 @@ matrixAsTransfrom (const Eigen::Matrix4f &out_mat,  tf::Transform& bt)
     basis.setFromOpenGLSubMatrix(mv);
     tf::Vector3 origin(out_mat (0, 3),out_mat (1, 3),out_mat (2, 3));
 
-    ROS_DEBUG("origin %f %f %f", origin.x(), origin.y(), origin.z());
+    ROS_INFO("origin %f %f %f", origin.x(), origin.y(), origin.z());
 
     bt = tf::Transform(basis,origin);
 }
@@ -165,7 +166,7 @@ pcl::KdTree<pcl::PointXYZ>::Ptr getTree(pcl::PointCloud<pcl::PointXYZ>::Ptr clou
 
 void mapCallback(const nav_msgs::OccupancyGrid& msg)
 {
-    ROS_DEBUG("I heard frame_id: [%s]", msg.header.frame_id.c_str());
+    ROS_INFO("I heard frame_id: [%s]", msg.header.frame_id.c_str());
 
     float resolution = msg.info.resolution;
     float width = msg.info.width;
@@ -179,8 +180,11 @@ void mapCallback(const nav_msgs::OccupancyGrid& msg)
     //cloud_xyz->width    = 100; // 100
     cloud_xyz->height   = 1;
     cloud_xyz->is_dense = false;
-    cloud_xyz->header.stamp = ros::Time(0);
-    cloud_xyz->header.frame_id = "/map";
+    std_msgs::Header header;
+    header.stamp = ros::Time(0.0);
+    header.frame_id = "map";
+
+    cloud_xyz->header = pcl_conversions::toPCL(header);
 
     pcl::PointXYZ point_xyz;
 
@@ -202,7 +206,7 @@ void mapCallback(const nav_msgs::OccupancyGrid& msg)
     mapTree = getTree(cloud_xyz);
 
     pcl::toROSMsg (*cloud_xyz, *output_cloud);
-    ROS_DEBUG("Publishing PointXYZ cloud with %ld points in frame %s", cloud_xyz->points.size(),output_cloud->header.frame_id.c_str());
+    ROS_INFO("Publishing PointXYZ cloud with %ld points in frame %s", cloud_xyz->points.size(),output_cloud->header.frame_id.c_str());
 
     we_have_a_map = true;
 }
@@ -277,7 +281,7 @@ void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_in)
         }
 
     count_sc_++;
-    //ROS_DEBUG("count_sc %i MUTEX LOCKED", count_sc_);
+    //ROS_INFO("count_sc %i MUTEX LOCKED", count_sc_);
 
     //if (count_sc_ > 10)
     //if (count_sc_ > 10)
@@ -377,7 +381,7 @@ void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_in)
             pcl::fromROSMsg(*output_cloud,*myMapCloud);
             pcl::fromROSMsg(cloud2,*myScanCloud);
 
-            reg.setInputCloud(myScanCloud);
+            reg.setInputSource(myScanCloud);
             reg.setInputTarget(myMapCloud);
 
             PointCloudT unused;
@@ -436,24 +440,25 @@ void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_in)
             else
             {
                 tf::Transform rel = base_at_laser.inverseTimes(base_after_icp);
-                ROS_DEBUG("relative motion of robot while doing icp: %fcm %fdeg", rel.getOrigin().length(), rel.getRotation().getAngle() * 180 / M_PI);
+                ROS_INFO("relative motion of robot while doing icp: %fcm %fdeg", rel.getOrigin().length(), rel.getRotation().getAngle() * 180 / M_PI);
                 t= t * rel;
             }
 
-            //ROS_DEBUG("dist %f angleDist %f",dist, angleDist);
+            //ROS_INFO("dist %f angleDist %f",dist, angleDist);
 
-            //ROS_DEBUG("SCAN_AGE seems to be %f", scan_age.toSec());
+            //ROS_INFO("SCAN_AGE seems to be %f", scan_age.toSec());
             char msg_c_str[2048];
             sprintf(msg_c_str,"INLIERS %f (%f) scan_age %f (%f age_threshold) dist %f angleDist %f axis(%f %f %f) fitting %f (icp_fitness_threshold %f)",inlier_perc, ICP_INLIER_THRESHOLD, scan_age.toSec(), AGE_THRESHOLD ,dist, angleDist, rotAxis.x(), rotAxis.y(), rotAxis.z(),reg.getFitnessScore(), ICP_FITNESS_THRESHOLD );
             std_msgs::String strmsg;
             strmsg.data = msg_c_str;
 
-            //ROS_DEBUG("%s", msg_c_str);
+            //ROS_INFO("%s", msg_c_str);
 
             double cov = POSE_COVARIANCE_TRANS;
 
             //if ((actScan - lastTimeSent > UPDATE_AGE_THRESHOLD) && ((dist > DIST_THRESHOLD) || (angleDist > ANGLE_THRESHOLD)) && (angleDist < ANGLE_UPPER_THRESHOLD))
             //  if ( reg.getFitnessScore()  <= ICP_FITNESS_THRESHOLD )
+	    std::cerr << "actScan - lastTimeSent: " << actScan - lastTimeSent << " " << "dist: " << dist << " " << "angleDist: " << angleDist << " inlier_perc: " << inlier_perc << std::endl;
             if ((actScan - lastTimeSent > UPDATE_AGE_THRESHOLD) && ((dist > DIST_THRESHOLD) || (angleDist > ANGLE_THRESHOLD)) && (inlier_perc > ICP_INLIER_THRESHOLD) && (angleDist < ANGLE_UPPER_THRESHOLD))
             {
                 lastTimeSent = actScan;
@@ -470,8 +475,8 @@ void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_in)
                 pose.pose.covariance[6*0+0] = (cov * cov) * factorPos;
                 pose.pose.covariance[6*1+1] = (cov * cov) * factorPos;
                 pose.pose.covariance[6*3+3] = (M_PI/12.0 * M_PI/12.0) * factorRot;
-                ROS_DEBUG("i %i converged %i SCORE: %f", i,  reg.hasConverged (),  reg.getFitnessScore()  );
-                ROS_DEBUG("PUBLISHING A NEW INITIAL POSE dist %f angleDist %f Setting pose: %.3f %.3f  [frame=%s]",dist, angleDist , pose.pose.pose.position.x  , pose.pose.pose.position.y , pose.header.frame_id.c_str());
+                ROS_INFO("i %i converged %i SCORE: %f", i,  reg.hasConverged (),  reg.getFitnessScore()  );
+                ROS_INFO("PUBLISHING A NEW INITIAL POSE dist %f angleDist %f Setting pose: %.3f %.3f  [frame=%s]",dist, angleDist , pose.pose.pose.position.x  , pose.pose.pose.position.y , pose.header.frame_id.c_str());
                 pub_pose.publish(pose);
                 strmsg.data += " << SENT";
             }
@@ -479,8 +484,8 @@ void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_in)
             //ROS_INFO("processing time : %f", (ros::Time::now() - time_received).toSec());
 
             pub_info_.publish(strmsg);
-            //ROS_DEBUG("map width %i height %i size %i, %s", myMapCloud.width, myMapCloud.height, (int)myMapCloud.points.size(), myMapCloud.header.frame_id.c_str());
-            //ROS_DEBUG("scan width %i height %i size %i, %s", myScanCloud.width, myScanCloud.height, (int)myScanCloud.points.size(), myScanCloud.header.frame_id.c_str());
+            //ROS_INFO("map width %i height %i size %i, %s", myMapCloud.width, myMapCloud.height, (int)myMapCloud.points.size(), myMapCloud.header.frame_id.c_str());
+            //ROS_INFO("scan width %i height %i size %i, %s", myScanCloud.width, myScanCloud.height, (int)myScanCloud.points.size(), myScanCloud.header.frame_id.c_str());
         }
     }
     scan_callback_mutex.unlock();
@@ -494,21 +499,21 @@ void updateParams()
 {
     paramsWereUpdated = ros::Time::now();
     // nh.param<std::string>("default_param", default_param, "default_value");
-    nh->param<bool>("USE_SIM_TIME", use_sim_time, false);
+    nh->param<bool>("USE_SIM_TIME", use_sim_time, true);
     nh->param<double>("SnapMapICP/icp_fitness_threshold", ICP_FITNESS_THRESHOLD, 100 );
     nh->param<double>("SnapMapICP/age_threshold", AGE_THRESHOLD, 1);
     nh->param<double>("SnapMapICP/angle_upper_threshold", ANGLE_UPPER_THRESHOLD, 1);
     nh->param<double>("SnapMapICP/angle_threshold", ANGLE_THRESHOLD, 0.01);
     nh->param<double>("SnapMapICP/update_age_threshold", UPDATE_AGE_THRESHOLD, 1);
     nh->param<double>("SnapMapICP/dist_threshold", DIST_THRESHOLD, 0.01);
-    nh->param<double>("SnapMapICP/icp_inlier_threshold", ICP_INLIER_THRESHOLD, 0.88);
+    nh->param<double>("SnapMapICP/icp_inlier_threshold", ICP_INLIER_THRESHOLD, 0.6);
     nh->param<double>("SnapMapICP/icp_inlier_dist", ICP_INLIER_DIST, 0.1);
     nh->param<double>("SnapMapICP/icp_num_iter", ICP_NUM_ITER, 250);
     nh->param<double>("SnapMapICP/pose_covariance_trans", POSE_COVARIANCE_TRANS, 0.5);
     nh->param<double>("SnapMapICP/scan_rate", SCAN_RATE, 2);
     if (SCAN_RATE < .001)
         SCAN_RATE  = .001;
-    //ROS_DEBUG("PARAM UPDATE");
+    //ROS_INFO("PARAM UPDATE");
 
 }
 
@@ -520,8 +525,8 @@ int main(int argc, char** argv)
     ros::NodeHandle nh_;
     nh = &nh_;
 
-    nh->param<std::string>("SnapMapICP/odom_frame", ODOM_FRAME, "/odom_combined");
-    nh->param<std::string>("SnapMapICP/base_laser_frame", BASE_LASER_FRAME, "/base_laser_link");
+    nh->param<std::string>("SnapMapICP/odom_frame", ODOM_FRAME, "/odom");
+    nh->param<std::string>("SnapMapICP/base_laser_frame", BASE_LASER_FRAME, "/hokuyo_laser_link");
 
     last_processed_scan = ros::Time::now();
 
@@ -536,7 +541,7 @@ int main(int argc, char** argv)
     pub_pose = nh->advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 1);
 
     ros::Subscriber subMap = nh_.subscribe("map", 1, mapCallback);
-    ros::Subscriber subScan = nh_.subscribe("base_scan", 1, scanCallback);
+    ros::Subscriber subScan = nh_.subscribe("scan", 1, scanCallback);
 
     ros::Rate loop_rate(5);
 
@@ -560,11 +565,11 @@ int main(int argc, char** argv)
         {
             lastScan = actScan;
             // publish map as a pointcloud2
-            //if (we_have_a_map)
-            //   pub_output_.publish(Ŕ);
+            if (we_have_a_map)
+              pub_output_.publish(output_cloud);
             // publish scan as seen as a pointcloud2
-            //if (we_have_a_scan)
-            //   pub_output_scan.publish(cloud2);
+            if (we_have_a_scan)
+               pub_output_scan.publish(cloud2);
             // publish icp transformed scan
             if (we_have_a_scan_transformed)
                 pub_output_scan_transformed.publish(cloud2transformed);

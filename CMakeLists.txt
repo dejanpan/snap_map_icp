@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(snap_map_icp)
 
-find_package(catkin REQUIRED std_msgs nav_msgs laser_geometry sensor_msgs geometry_msgs tf)
+find_package(catkin REQUIRED std_msgs nav_msgs laser_geometry sensor_msgs geometry_msgs tf pcl_conversions)
 
 find_package(Eigen REQUIRED)
 include_directories(${EIGEN_INCLUDE_DIRS})
@@ -13,7 +13,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 
 
 catkin_package(
-  CATKIN_DEPENDS std_msgs nav_msgs laser_geometry sensor_msgs geometry_msgs tf
+  CATKIN_DEPENDS std_msgs nav_msgs laser_geometry sensor_msgs geometry_msgs tf pcl_conversions
   )
 
 include_directories(${catkin_INCLUDE_DIRS}
