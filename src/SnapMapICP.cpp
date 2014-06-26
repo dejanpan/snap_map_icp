@@ -143,7 +143,7 @@ matrixAsTransfrom (const Eigen::Matrix4f &out_mat,  tf::Transform& bt)
     basis.setFromOpenGLSubMatrix(mv);
     tf::Vector3 origin(out_mat (0, 3),out_mat (1, 3),out_mat (2, 3));
 
-    ROS_INFO("origin %f %f %f", origin.x(), origin.y(), origin.z());
+    ROS_DEBUG("origin %f %f %f", origin.x(), origin.y(), origin.z());
 
     bt = tf::Transform(basis,origin);
 }
@@ -440,7 +440,7 @@ void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_in)
             else
             {
                 tf::Transform rel = base_at_laser.inverseTimes(base_after_icp);
-                ROS_INFO("relative motion of robot while doing icp: %fcm %fdeg", rel.getOrigin().length(), rel.getRotation().getAngle() * 180 / M_PI);
+                ROS_DEBUG("relative motion of robot while doing icp: %fcm %fdeg", rel.getOrigin().length(), rel.getRotation().getAngle() * 180 / M_PI);
                 t= t * rel;
             }
 
@@ -458,7 +458,7 @@ void scanCallback (const sensor_msgs::LaserScan::ConstPtr& scan_in)
 
             //if ((actScan - lastTimeSent > UPDATE_AGE_THRESHOLD) && ((dist > DIST_THRESHOLD) || (angleDist > ANGLE_THRESHOLD)) && (angleDist < ANGLE_UPPER_THRESHOLD))
             //  if ( reg.getFitnessScore()  <= ICP_FITNESS_THRESHOLD )
-	    std::cerr << "actScan - lastTimeSent: " << actScan - lastTimeSent << " " << "dist: " << dist << " " << "angleDist: " << angleDist << " inlier_perc: " << inlier_perc << std::endl;
+	    //	    std::cerr << "actScan - lastTimeSent: " << actScan - lastTimeSent << " " << "dist: " << dist << " " << "angleDist: " << angleDist << " inlier_perc: " << inlier_perc << std::endl;
             if ((actScan - lastTimeSent > UPDATE_AGE_THRESHOLD) && ((dist > DIST_THRESHOLD) || (angleDist > ANGLE_THRESHOLD)) && (inlier_perc > ICP_INLIER_THRESHOLD) && (angleDist < ANGLE_UPPER_THRESHOLD))
             {
                 lastTimeSent = actScan;
@@ -499,22 +499,22 @@ void updateParams()
 {
     paramsWereUpdated = ros::Time::now();
     // nh.param<std::string>("default_param", default_param, "default_value");
-    nh->param<bool>("USE_SIM_TIME", use_sim_time, true);
-    nh->param<double>("SnapMapICP/icp_fitness_threshold", ICP_FITNESS_THRESHOLD, 100 );
-    nh->param<double>("SnapMapICP/age_threshold", AGE_THRESHOLD, 1);
-    nh->param<double>("SnapMapICP/angle_upper_threshold", ANGLE_UPPER_THRESHOLD, 1);
-    nh->param<double>("SnapMapICP/angle_threshold", ANGLE_THRESHOLD, 0.01);
-    nh->param<double>("SnapMapICP/update_age_threshold", UPDATE_AGE_THRESHOLD, 1);
-    nh->param<double>("SnapMapICP/dist_threshold", DIST_THRESHOLD, 0.01);
-    nh->param<double>("SnapMapICP/icp_inlier_threshold", ICP_INLIER_THRESHOLD, 0.6);
-    nh->param<double>("SnapMapICP/icp_inlier_dist", ICP_INLIER_DIST, 0.1);
-    nh->param<double>("SnapMapICP/icp_num_iter", ICP_NUM_ITER, 250);
-    nh->param<double>("SnapMapICP/pose_covariance_trans", POSE_COVARIANCE_TRANS, 0.5);
-    nh->param<double>("SnapMapICP/scan_rate", SCAN_RATE, 2);
+    nh->param<bool>("/snap_map_icp/USE_SIM_TIME", use_sim_time, true);
+    nh->param<double>("/snap_map_icp/icp_fitness_threshold", ICP_FITNESS_THRESHOLD, 100 );
+    nh->param<double>("/snap_map_icp/age_threshold", AGE_THRESHOLD, 1);
+    nh->param<double>("/snap_map_icp/angle_upper_threshold", ANGLE_UPPER_THRESHOLD, 1);
+    nh->param<double>("/snap_map_icp/angle_threshold", ANGLE_THRESHOLD, 0.01);
+    nh->param<double>("/snap_map_icp/update_age_threshold", UPDATE_AGE_THRESHOLD, 1);
+    nh->param<double>("/snap_map_icp/dist_threshold", DIST_THRESHOLD, 0.01);
+    nh->param<double>("/snap_map_icp/icp_inlier_threshold", ICP_INLIER_THRESHOLD, 0.6);
+    nh->param<double>("/snap_map_icp/icp_inlier_dist", ICP_INLIER_DIST, 0.1);
+    nh->param<double>("/snap_map_icp/icp_num_iter", ICP_NUM_ITER, 250);
+    nh->param<double>("/snap_map_icp/pose_covariance_trans", POSE_COVARIANCE_TRANS, 0.5);
+    nh->param<double>("/snap_map_icp/scan_rate", SCAN_RATE, 2);
     if (SCAN_RATE < .001)
         SCAN_RATE  = .001;
     //ROS_INFO("PARAM UPDATE");
-
+    std::cerr << "ICP_INLIER_THRESHOLD: " << ICP_INLIER_THRESHOLD << std::endl;
 }
 
 int main(int argc, char** argv)
@@ -525,8 +525,8 @@ int main(int argc, char** argv)
     ros::NodeHandle nh_;
     nh = &nh_;
 
-    nh->param<std::string>("SnapMapICP/odom_frame", ODOM_FRAME, "/odom");
-    nh->param<std::string>("SnapMapICP/base_laser_frame", BASE_LASER_FRAME, "/hokuyo_laser_link");
+    nh->param<std::string>("/snap_map_icp/odom_frame", ODOM_FRAME, "/odom");
+    nh->param<std::string>("/snap_map_icp/base_laser_frame", BASE_LASER_FRAME, "/hokuyo_laser_link");
 
     last_processed_scan = ros::Time::now();
 
